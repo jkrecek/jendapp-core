@@ -1,0 +1,13 @@
+# ~/.jendapp/config.toml
+# Loopback only; HTTPS on the tailnet comes from:
+#   tailscale serve --bg --https=8443 http://127.0.0.1:8787
+listen = "127.0.0.1:8787"
+public_url = "https://<host>.<tailnet>.ts.net:8443"
+data_dir = "~/.jendapp"
+claude_bin = "claude"   # absolute path if launchd/systemd PATH lacks it
+max_jobs = 2
+
+# Each directory needs a jendapp.toml. Import routing tries modules in this order.
+modules = [
+  "~/Library/Mobile Documents/com~apple~CloudDocs/Marathon",
+]

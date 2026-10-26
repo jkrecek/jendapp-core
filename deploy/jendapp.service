@@ -1,0 +1,14 @@
+# Linux systemd user unit. Install: cp to ~/.config/systemd/user/ then
+#   systemctl --user enable --now jendapp && loginctl enable-linger $USER
+[Unit]
+Description=jendapp server
+After=network-online.target tailscaled.service
+
+[Service]
+ExecStart=%h/.jendapp/bin/jendapp serve
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

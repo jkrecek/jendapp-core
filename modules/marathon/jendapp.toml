@@ -1,0 +1,39 @@
+# Copy into the Marathon folder (iCloud Drive/Marathon/jendapp.toml) to enable.
+id = "marathon"
+name = "Marathon"
+icon = "figure.run"
+
+[claude]
+allowed_tools = ["Read", "Glob", "Grep", "Edit", "Write", "Bash(python3 *)"]
+max_budget_usd = 3.00
+
+# HealthFit exports: YYYY-MM-DD-HHMMSS-<Activity>-<Device>.csv. First match wins.
+[[import]]
+match = "*-Outdoor Running-*.csv"
+dest = "runs"
+
+[[import]]
+match = "*-Outdoor Cycling-*.csv"
+dest = "cycling"
+
+[[import]]
+match = "Fitness-*.csv"
+dest = "."
+
+[[import]]
+match = "strong_workouts.csv"
+dest = "."
+overwrite = true # Strong re-exports the full history in place
+
+[[import]]
+match = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.csv"
+dest = "exercise"
+
+[on_import]
+debounce = "2m"
+prompt = """
+New exports were just imported via jendapp:
+{files}
+
+Run your standing session-start analysis on them (per RUNNER.md: `python3 scores.py`, update TRAINING_LOG.md and SCORES.md). Then reply with a short coach's summary of the new activity and anything I should know before the next session.
+"""

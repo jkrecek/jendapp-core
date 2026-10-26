@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- macOS LaunchAgent. Install: sed "s|__HOME__|$HOME|g" this > ~/Library/LaunchAgents/dev.jendapp.server.plist
+     then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.jendapp.server.plist -->
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>dev.jendapp.server</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/.jendapp/bin/jendapp</string>
+		<string>serve</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<!-- Claude's Bash tool runs module scripts (python3 etc.) with this PATH. -->
+		<key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>RunAtLoad</key><true/>
+	<!-- Restart on exit, e.g. when the Tailscale IP isn't up yet at login. -->
+	<key>KeepAlive</key><true/>
+	<key>ThrottleInterval</key><integer>15</integer>
+	<key>StandardOutPath</key><string>__HOME__/.jendapp/logs/server.log</string>
+	<key>StandardErrorPath</key><string>__HOME__/.jendapp/logs/server.log</string>
+</dict>
+</plist>
