@@ -25,6 +25,7 @@ import (
 	"jendapp/internal/config"
 	"jendapp/internal/inbox"
 	"jendapp/internal/module"
+	"jendapp/internal/ops"
 	"jendapp/internal/store"
 )
 
@@ -116,7 +117,8 @@ func serve(cfg *config.Config, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	a := &api.API{Store: st, Modules: reg, Runner: runner, Inbox: in}
+	opsRunner := ops.NewRunner(ctx, st)
+	a := &api.API{Store: st, Modules: reg, Runner: runner, Ops: opsRunner, Inbox: in}
 
 	srv := &http.Server{
 		Addr:              cfg.Listen,
@@ -137,5 +139,6 @@ func serve(cfg *config.Config, st *store.Store) error {
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	runner.Wait()
+	opsRunner.Wait()
 	return nil
 }

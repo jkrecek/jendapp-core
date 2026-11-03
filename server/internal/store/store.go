@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS inbox (
 CREATE TABLE IF NOT EXISTS jobs (
 	id          TEXT PRIMARY KEY,
 	module_id   TEXT NOT NULL,
-	kind        TEXT NOT NULL,         -- chat | import
+	kind        TEXT NOT NULL,         -- chat | import | op
 	session_id  TEXT NOT NULL,
 	status      TEXT NOT NULL,         -- queued | running | done | failed
 	prompt      TEXT NOT NULL,
@@ -49,6 +49,15 @@ CREATE TABLE IF NOT EXISTS jobs (
 	denials     TEXT,                  -- JSON array of denied tool calls
 	created_at  TIMESTAMP NOT NULL,
 	finished_at TIMESTAMP
+);
+-- Last output of each module source, per parameter set (served when a refresh fails).
+CREATE TABLE IF NOT EXISTS snapshots (
+	module_id  TEXT NOT NULL,
+	source_id  TEXT NOT NULL,
+	params     TEXT NOT NULL,          -- canonical "k=v&…"
+	data       TEXT NOT NULL,
+	fetched_at TIMESTAMP NOT NULL,
+	PRIMARY KEY (module_id, source_id, params)
 );
 `
 
@@ -273,4 +282,25 @@ func (s *Store) queryJobs(where string, args ...any) ([]Job, error) {
 		out = append(out, j)
 	}
 	return out, rows.Err()
+}
+
+// --- snapshots ---
+
+func (s *Store) SaveSnapshot(moduleID, sourceID, params string, data []byte, at time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO snapshots (module_id, source_id, params, data, fetched_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (module_id, source_id, params) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at`,
+		moduleID, sourceID, params, string(data), at)
+	return err
+}
+
+// GetSnapshot returns ErrNotFound when the source has never produced output for params.
+func (s *Store) GetSnapshot(moduleID, sourceID, params string) ([]byte, time.Time, error) {
+	var data string
+	var at time.Time
+	err := s.db.QueryRow(`SELECT data, fetched_at FROM snapshots WHERE module_id = ? AND source_id = ? AND params = ?`,
+		moduleID, sourceID, params).Scan(&data, &at)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, time.Time{}, ErrNotFound
+	}
+	return []byte(data), at, err
 }

@@ -184,6 +184,9 @@ func buildArgs(m *module.Module, sessionID string, resume bool) []string {
 		args = append(args, "--model", m.Claude.Model)
 	}
 	args = append(args, "--append-system-prompt", headlessNote(m))
+	if m.Claude.Chrome {
+		args = append(args, "--chrome")
+	}
 	if m.Claude.MaxBudgetUSD > 0 {
 		args = append(args, "--max-budget-usd", strconv.FormatFloat(m.Claude.MaxBudgetUSD, 'f', 2, 64))
 	}

@@ -25,6 +25,10 @@ type Module struct {
 	OnImport *OnImport `toml:"on_import" json:"-"`
 	// One-tap prompts shown in the app; each starts a new chat.
 	Actions []Action `toml:"actions" json:"actions"`
+	// Data commands, the screens built from them, and what the user can do there (see ui.go).
+	Sources    []Source    `toml:"sources" json:"-"`
+	Views      []View      `toml:"views" json:"views"`
+	Operations []Operation `toml:"operations" json:"operations"`
 }
 
 type Action struct {
@@ -49,6 +53,9 @@ type Claude struct {
 	// Extra directories Claude may access (--add-dir), relative to the module dir.
 	// Import rules may also deliver into them. Resolved to absolute paths by Load.
 	AddDirs []string `toml:"add_dirs"`
+	// Chrome lets Claude drive the user's Chrome on this Mac (claude --chrome), for
+	// sites without an API. Its tools still need allowed_tools ("mcp__claude-in-chrome").
+	Chrome bool `toml:"chrome"`
 }
 
 // Rule routes an imported file into the module when its name matches.
@@ -113,6 +120,9 @@ func Load(dir string) (*Module, error) {
 		if a.Confirm != nil && (a.Confirm.Title == "" || a.Confirm.Prompt == "") {
 			return nil, fmt.Errorf("module %s: action %q: confirm needs a title and a prompt", m.ID, a.Title)
 		}
+	}
+	if err := m.validateUI(); err != nil {
+		return nil, err
 	}
 	return m, nil
 }

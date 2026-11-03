@@ -13,6 +13,7 @@ import (
 	"jendapp/internal/claude"
 	"jendapp/internal/inbox"
 	"jendapp/internal/module"
+	"jendapp/internal/ops"
 	"jendapp/internal/store"
 )
 
@@ -22,6 +23,7 @@ type API struct {
 	Store   *store.Store
 	Modules *module.Registry
 	Runner  *claude.Runner
+	Ops     *ops.Runner
 	Inbox   *inbox.Inbox
 }
 
@@ -33,6 +35,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/modules/{id}/sessions", a.listSessions)
 	mux.HandleFunc("GET /api/modules/{id}/sessions/{sid}", a.sessionMessages)
 	mux.HandleFunc("POST /api/modules/{id}/chat", a.chat)
+	mux.HandleFunc("GET /api/modules/{id}/views/{view}", a.viewData)
+	mux.HandleFunc("POST /api/modules/{id}/ops/{op}", a.runOperation)
 
 	mux.HandleFunc("GET /api/jobs", a.listJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", a.getJob)
