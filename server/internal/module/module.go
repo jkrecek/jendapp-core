@@ -29,6 +29,7 @@ type Module struct {
 	Sources    []Source    `toml:"sources" json:"-"`
 	Views      []View      `toml:"views" json:"views"`
 	Operations []Operation `toml:"operations" json:"operations"`
+	Schedules  []Schedule  `toml:"schedules" json:"-"`
 }
 
 type Action struct {

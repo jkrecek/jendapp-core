@@ -239,6 +239,17 @@ func (s *Store) UpdateJob(j *Job) error {
 	return err
 }
 
+// LastOpRun is the local date (YYYY-MM-DD) an operation with this title last started in the
+// module, or "" if never. Operation jobs store "<title>\n<argv>" as their prompt.
+func (s *Store) LastOpRun(moduleID, title string) string {
+	jobs, err := s.queryJobs(`WHERE module_id = ? AND kind = 'op' AND prompt LIKE ? ORDER BY created_at DESC LIMIT 1`,
+		moduleID, title+"\n%")
+	if err != nil || len(jobs) == 0 {
+		return ""
+	}
+	return jobs[0].CreatedAt.Local().Format(time.DateOnly)
+}
+
 func (s *Store) GetJob(id string) (*Job, error) {
 	jobs, err := s.queryJobs(`WHERE id = ?`, id)
 	if err != nil {

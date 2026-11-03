@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,10 @@ type Runner struct {
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex // module id → serialises its operations
 	wg    sync.WaitGroup
+
+	// OnDone, if set, runs after an operation finished, with the follow-ups it asked for
+	// ("jendapp:next <id>" lines that are listed in op.Next; see FollowUps).
+	OnDone func(m *module.Module, op *module.Operation, j *store.Job, next []string)
 }
 
 func NewRunner(ctx context.Context, st *store.Store) *Runner {
@@ -173,7 +178,8 @@ func (r *Runner) Start(m *module.Module, op *module.Operation, args []string) (*
 		out, stderr, err := run(ctx, m.Dir, args, maxSourceOutput)
 		now := time.Now().UTC()
 		j.FinishedAt = &now
-		if result := clip(strings.TrimSpace(string(out))); result != "" {
+		shown, next := FollowUps(string(out), op.Next)
+		if result := clip(strings.TrimSpace(shown)); result != "" {
 			j.Result = &result
 		}
 		if err != nil {
@@ -187,8 +193,35 @@ func (r *Runner) Start(m *module.Module, op *module.Operation, args []string) (*
 			slog.Error("update job", "job", j.ID, "err", err)
 		}
 		slog.Info("operation finished", "job", j.ID, "module", m.ID, "op", op.ID, "status", j.Status, "took", time.Since(start).Round(time.Millisecond))
+		if r.OnDone != nil {
+			if j.Status != "done" {
+				next = nil
+			}
+			r.OnDone(m, op, j, next)
+		}
 	}()
 	return j, done, nil
+}
+
+// FollowUps splits command output into what the user sees and the follow-up operations it
+// requests with "jendapp:next <id>" lines; ids not in allowed are dropped (and logged).
+func FollowUps(out string, allowed []string) (string, []string) {
+	var shown, next []string
+	for _, line := range strings.Split(out, "\n") {
+		id, ok := strings.CutPrefix(strings.TrimSpace(line), "jendapp:next ")
+		if !ok {
+			shown = append(shown, line)
+			continue
+		}
+		id = strings.TrimSpace(id)
+		switch {
+		case !slices.Contains(allowed, id):
+			slog.Warn("operation asked for a follow-up it doesn't declare", "next", id)
+		case !slices.Contains(next, id):
+			next = append(next, id)
+		}
+	}
+	return strings.Join(shown, "\n"), next
 }
 
 func (r *Runner) lock(moduleID string) *sync.Mutex {

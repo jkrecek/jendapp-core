@@ -87,6 +87,15 @@ type Operation struct {
 	Destructive bool                `toml:"destructive" json:"destructive,omitempty"`
 	Timeout     string              `toml:"timeout" json:"-"` // command ops; default 10m
 	Params      []string            `toml:"-" json:"params"`
+	// Command ops only: operations this one may start when it finishes, by printing a line
+	// "jendapp:next <id>" (e.g. a sync that hands the browser part to Claude only when needed).
+	Next []string `toml:"next" json:"-"`
+}
+
+// Schedule runs a module-scope command operation every day at a local time.
+type Schedule struct {
+	Op string `toml:"op"`
+	At string `toml:"at"` // HH:MM, local time
 }
 
 type Condition struct {
@@ -230,6 +239,30 @@ func (m *Module) validateUI() error {
 		o.Conditions = nil
 		for _, f := range slices.Sorted(maps.Keys(o.When)) {
 			o.Conditions = append(o.Conditions, Condition{Field: f, Values: o.When[f]})
+		}
+	}
+	plain := func(o *Operation) bool { // can start without the app: no row, inputs or params
+		return o.Scope == "module" && len(o.Inputs) == 0 && len(o.Params) == 0
+	}
+	for i := range m.Operations {
+		o := &m.Operations[i]
+		if len(o.Next) > 0 && o.Kind != "command" {
+			return fail("operation %q: next is only for command operations", o.ID)
+		}
+		for _, id := range o.Next {
+			t := m.Operation(id)
+			if t == nil || t.ID == o.ID || !plain(t) {
+				return fail("operation %q: next %q must be another module operation without inputs or params", o.ID, id)
+			}
+		}
+	}
+	for _, sc := range m.Schedules {
+		o := m.Operation(sc.Op)
+		if o == nil || o.Kind != "command" || !plain(o) {
+			return fail("schedule %q: needs a module command operation without inputs or params", sc.Op)
+		}
+		if _, err := time.Parse("15:04", sc.At); err != nil {
+			return fail("schedule %q: at must be HH:MM", sc.Op)
 		}
 	}
 	for i := range m.Views {

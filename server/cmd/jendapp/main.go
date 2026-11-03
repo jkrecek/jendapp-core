@@ -118,6 +118,27 @@ func serve(cfg *config.Config, st *store.Store) error {
 		return err
 	}
 	opsRunner := ops.NewRunner(ctx, st)
+	// A finished command operation may hand over to follow-ups it declares (op.Next).
+	opsRunner.OnDone = func(m *module.Module, op *module.Operation, j *store.Job, next []string) {
+		for _, id := range next {
+			t := m.Operation(id)
+			if t == nil {
+				continue
+			}
+			var err error
+			if t.Kind == "claude" {
+				_, err = runner.Start(m, "op", module.Expand(t.Prompt, module.Vars{}), "")
+			} else {
+				_, _, err = opsRunner.Start(m, t, t.Run)
+			}
+			if err != nil {
+				slog.Error("follow-up operation", "module", m.ID, "after", op.ID, "op", id, "err", err)
+			} else {
+				slog.Info("follow-up operation started", "module", m.ID, "after", op.ID, "op", id)
+			}
+		}
+	}
+	opsRunner.Schedule(reg.All, st.LastOpRun)
 	a := &api.API{Store: st, Modules: reg, Runner: runner, Ops: opsRunner, Inbox: in}
 
 	srv := &http.Server{
